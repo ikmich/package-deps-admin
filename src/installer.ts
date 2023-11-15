@@ -1,4 +1,4 @@
-import { logError, logInfo, logNotice } from './log.util.js';
+import { logError, logInfo, logNotice, logWarn } from './log.util.js';
 import { shell_ } from '@ikmich/utilis';
 import { InstallOpts, UninstallOpts } from './types.js';
 import { _ifDev, assertPackageManager, assertPackageRoot, depsUtil } from './util.js';
@@ -79,7 +79,7 @@ export async function installDependencies(opts: InstallOpts) {
   });
 
   if (hasRuntimeDependencies) {
-    logInfo(`Installing dependencies: ${runtimePackageRefs}`);
+    logInfo(`Installing dependencies (${runtimePackageRefs}) in root "${packageRoot}"`);
 
     const output = await shell_.exec(`${cmdRuntimeDeps}`, { cwd: packageRoot });
     if (output.stdout) {
@@ -91,7 +91,7 @@ export async function installDependencies(opts: InstallOpts) {
   }
 
   if (hasDevDependencies) {
-    logInfo(`Installing dependencies: ${devPackageRefs}`);
+    logInfo(`Installing dependencies (${devPackageRefs}) in root "${packageRoot}"`);
 
     const output = await shell_.exec(`${cmdDevDeps}`, { cwd: packageRoot });
     if (output.stdout) {
@@ -103,7 +103,7 @@ export async function installDependencies(opts: InstallOpts) {
   }
 
   if (hasGlobalDependencies) {
-    logInfo(`Installing dependencies: ${globalPackageRefs}`);
+    logInfo(`Installing dependencies (${globalPackageRefs}) in root "${packageRoot}"`);
 
     const output = await shell_.exec(`${cmdGlobalDeps}`, { cwd: packageRoot });
     if (output.stdout) {
@@ -113,20 +113,20 @@ export async function installDependencies(opts: InstallOpts) {
       logError(output.stderr);
     }
   }
+
+  console.log('Done');
 }
 
 export async function uninstallDependencies(opts: UninstallOpts) {
   const { packageRoot, dependencies, packageManager } = opts;
 
   assertPackageRoot(packageRoot);
-
   assertPackageManager(packageManager);
 
   if (!dependencies.length) {
-    logError('!error! No dependencies to remove.');
+    logWarn('!notice! No dependencies to remove.');
     return;
   }
-
 
   const actions = {
     npm: 'uninstall',
@@ -136,7 +136,7 @@ export async function uninstallDependencies(opts: UninstallOpts) {
   };
 
   let refs = depsUtil.getRefString(dependencies);
-  logNotice(`Uninstalling dependencies - ${refs}`);
+  logNotice(`Uninstalling dependencies (${refs}) from root: "${packageRoot}"`);
 
   const cmd = `${packageManager} ${actions[packageManager]} ${refs}`;
 
@@ -148,5 +148,6 @@ export async function uninstallDependencies(opts: UninstallOpts) {
   if (output.stderr) {
     logError(output.stderr);
   }
-  console.log('Done\n');
+
+  console.log('Done');
 }

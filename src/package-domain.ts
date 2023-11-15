@@ -1,15 +1,18 @@
 import { _delay } from '@ikmich/utilis';
 import { readPkgJson } from './util.js';
-import { Dependency, DependencyRef, DependencyRefArray, TPackageManager } from './types.js';
+import { Dependency, DependencyRef, DependencyRefArray, PackageManagerName } from './types.js';
 import { installDependencies, uninstallDependencies } from './installer.js';
 import { store } from './store.js';
+
+let pkgJson: any = {};
 
 /**
  * Represents a context that owns a package.json file and can have dependencies installed by node package managers.
  */
 export class PackageDomain {
-  private readonly packageConfig: Record<any, any> = {};
+  // private readonly packageConfig: Record<any, any> = {};
   readonly packageName: string = '';
+  readonly packageVersion: string = '';
   readonly runtimeDependencies: Dependency[] = [];
   readonly devDependencies: Dependency[] = [];
 
@@ -19,18 +22,16 @@ export class PackageDomain {
    * @param packageRoot The path to the dir containing package.json.
    * @param packageManager
    */
-  constructor(readonly tag: string, readonly packageRoot: string, readonly packageManager: TPackageManager = 'npm') {
-    this.packageConfig = readPkgJson(packageRoot);
-    this.packageName = this.packageConfig['name'];
-    this.reloadDependencies();
+  constructor(readonly tag: string, readonly packageRoot: string, readonly packageManager: PackageManagerName = 'npm') {
+    pkgJson = readPkgJson(packageRoot);
+    this.packageName = pkgJson['name'];
+    this.packageVersion = pkgJson['version'];
+    this.loadDependencies();
   }
 
-  /**
-   * Load dependencies from package.json into the class properties (runtimeDependencies and devDependencies). Useful
-   * in the event that the dependency list may have changed after some activities.
-   */
-  reloadDependencies() {
-    const depsMap = this.packageConfig['dependencies'];
+
+  private loadDependencies() {
+    const depsMap = pkgJson['dependencies'];
 
     if (depsMap) {
       const entries = Object.entries(depsMap);
@@ -43,7 +44,7 @@ export class PackageDomain {
       }
     }
 
-    const devDepsMap = this.packageConfig['devDependencies'];
+    const devDepsMap = pkgJson['devDependencies'];
 
     if (devDepsMap) {
       const entries = Object.entries(devDepsMap);
@@ -55,6 +56,15 @@ export class PackageDomain {
         });
       }
     }
+  }
+
+  /**
+   * Load dependencies from package.json into the class properties (runtimeDependencies and devDependencies). Useful
+   * in the event that the dependency list may have changed after some activities.
+   */
+  reloadDependencies() {
+    pkgJson = readPkgJson(this.packageRoot);
+    this.loadDependencies();
   }
 
   async installRuntimeDependency(dep: DependencyRef) {
@@ -140,16 +150,16 @@ export class PackageDomain {
    * Takes dependencies from a source package and installs in another package if that package does not have it. This
    * can be useful for package development to make the in-development package's dependencies available to a host package
    * for the sake of testing.
-   * @param from
+   * @param source
    * @param dest
    */
-  static async transitDependencies(from: PackageDomain, dest: PackageDomain) {
+  static async transitDependencies(source: PackageDomain, dest: PackageDomain) {
     const foreignRuntimeDependencySet = new Set<string>();
     const foreignDevDependencySet = new Set<string>();
 
-    const _from = {
-      runtimeDepNames: from.runtimeDependencies.map(dep => dep.name),
-      devDepNames: from.devDependencies.map(dep => dep.name)
+    const _source = {
+      runtimeDepNames: source.runtimeDependencies.map(dep => dep.name),
+      devDepNames: source.devDependencies.map(dep => dep.name)
     };
 
     const _dest = {
@@ -157,14 +167,16 @@ export class PackageDomain {
       devDepNames: dest.devDependencies.map(dep => dep.name)
     };
 
-    for (const dep of _dest.runtimeDepNames) {
-      if (_from.runtimeDepNames.includes(dep)) continue;
-      else foreignRuntimeDependencySet.add(dep);
+    for (const dep of _source.runtimeDepNames) {
+      if (!_dest.runtimeDepNames.includes(dep)) {
+        foreignRuntimeDependencySet.add(dep);
+      }
     }
 
-    for (const dep of _dest.devDepNames) {
-      if (_from.devDepNames.includes(dep)) continue;
-      else foreignDevDependencySet.add(dep);
+    for (const dep of _source.devDepNames) {
+      if (!_dest.devDepNames.includes(dep)) {
+        foreignDevDependencySet.add(dep);
+      }
     }
 
     if (foreignRuntimeDependencySet.size) {
@@ -176,36 +188,42 @@ export class PackageDomain {
     }
 
     store.saveTransitLink({
-      from,
+      id: `${source.packageName}::to::${dest.packageName}`,
+      source,
       dest,
       transitedDependencies: {
-        runtime: foreignRuntimeDependencySet,
-        dev: foreignDevDependencySet
+        runtime: Array.from(foreignRuntimeDependencySet),
+        dev: Array.from(foreignDevDependencySet)
       }
     });
   }
 
   /**
    * Remove dependencies from this package that come from the other package.
-   * @param from
-   * @param to
+   * @param source
+   * @param dest
    */
-  static async removeTransitDependencies(from: PackageDomain, to: PackageDomain): Promise<boolean> {
+  static async removeTransitDependencies(source: PackageDomain, dest: PackageDomain) {
     // careful!
-    try {
-      const link = Array.from(store.getTransitLinks()).find(item => item.from == from && item.dest == to);
-      if (link) {
-        const runtimeDependencies = link.transitedDependencies.runtime;
-        const devDependencies = link.transitedDependencies.dev;
+    const transitLinks = store.getTransitLinks();
 
-        await link.dest.removeDependencies(Array.from(runtimeDependencies));
-        await link.dest.removeDependencies(Array.from(devDependencies));
-      }
-      return true;
-    } catch (e) {
-      return false;
+    const link = transitLinks.find(item => {
+      return item.source.packageName == source.packageName && item.dest.packageName == dest.packageName;
+    });
+
+    if (link) {
+      const runtimeDependencies = link.transitedDependencies.runtime;
+      const devDependencies = link.transitedDependencies.dev;
+
+      await uninstallDependencies({
+        packageManager: link.dest.packageManager,
+        packageRoot: link.dest.packageRoot,
+        dependencies: runtimeDependencies.concat(devDependencies)
+      });
+
+      // remove link from store
+      store.removeTransitLink(link.id);
     }
+    // return true;
   }
 }
-
-// to-do - optional dependencies

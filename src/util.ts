@@ -2,7 +2,7 @@ import { createRequire } from 'module';
 import Path from 'node:path';
 import fs from 'fs-extra';
 import chalk from 'chalk';
-import { DependencyRefArray, TPackageManager } from './types.js';
+import { DependencyRefArray, PackageManagerName } from './types.js';
 import shell from 'shelljs';
 import { _env } from '@ikmich/utilis';
 
@@ -29,12 +29,12 @@ export function assertPackageRoot(domainRoot: string) {
   }
 }
 
-export function isPackageManagerInstalled(packageManager: TPackageManager) {
+export function isPackageManagerInstalled(packageManager: PackageManagerName) {
   const output = shell.which(packageManager)?.trim();
   return !!output;
 }
 
-export function assertPackageManager(packageManager: TPackageManager) {
+export function assertPackageManager(packageManager: PackageManagerName) {
   const msg = `!ERROR! It seems package manager "${packageManager}" is not installed. Install it and try again, or choose another package manager that is installed.`;
   if (!isPackageManagerInstalled(packageManager)) {
     throw chalk.red(msg);

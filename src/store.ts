@@ -1,6 +1,7 @@
 import Conf from 'conf';
 import { readPkgJson } from './util.js';
 import { TransitLink } from './types._.js';
+import { logInfo } from './log.util.js';
 
 const conf = new Conf({
   projectName: 'package-deps-admin'
@@ -8,31 +9,35 @@ const conf = new Conf({
 
 const keys = {
   packageVersion: 'version',
-  transitLinks: 'transit_links',
-  snapshots: 'snapshots'
+  transitLinks: 'transit_links'
 };
 
 export class Store {
-  private readonly packageVersion: string;
+  private readonly cachedVersion: string;
+  private readonly activeVersion: string;
 
   constructor() {
     const pkgJson: any = readPkgJson(process.cwd());
-    const activeVersion = pkgJson['version'] || '';
-    this.packageVersion = this.get<string>(keys.packageVersion);
+    this.activeVersion = pkgJson['version'] || '';
+    this.cachedVersion = this.get<string>(keys.packageVersion) || '';
 
-    if (activeVersion !== this.packageVersion) {
-      console.log('New version!'); // migration? cleanup?
-      this.set(keys.packageVersion, activeVersion);
-      this.packageVersion = activeVersion;
+    if (this.activeVersion !== this.cachedVersion) {
+      logInfo('[store] New version!'); // migration? cleanup?
+      this.set(keys.packageVersion, this.activeVersion);
+      this.cachedVersion = this.activeVersion;
     }
   }
 
-  // getString(key: string): string {
-  //   return this.get<string>(key);
-  // }
-
-  get<T extends any>(key: string, defaultVal?: T | null): T {
-    return conf.get(key, defaultVal) as T;
+  get<T>(key: string, defaultVal?: T | null): T | null {
+    try {
+      let value = conf.get(key, defaultVal);
+      if (value) {
+        return value as T;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 
   set(key: string, value: any) {
@@ -40,21 +45,32 @@ export class Store {
   }
 
   saveTransitLink(transitLink: TransitLink) {
-    const value = conf.get(keys.transitLinks);
-    let links = new Set<TransitLink>();
-    if (value) {
-      links = value as Set<TransitLink>;
+    let links = this.getTransitLinks();
+
+    const hasExisting = links.some(link => link.id === transitLink.id);
+    if (hasExisting) {
+      // remove existing
+      const index = links.findIndex(item => item.id == transitLink.id);
+      links.splice(index, 1);
     }
-    links.add(transitLink);
+
+    links.push(transitLink);
     conf.set(keys.transitLinks, links);
   }
 
   getTransitLinks() {
-    const value = conf.get(keys.transitLinks);
-    if (value) {
-      return value as Set<TransitLink>;
-    }
-    return new Set<TransitLink>();
+    return this.get<TransitLink[]>(keys.transitLinks) || [];
+  }
+
+  removeTransitLink(id: string) {
+    const links = this.getTransitLinks();
+    const idx = links.findIndex(item => item.id === id);
+    links.splice(idx, 1);
+    this.set(keys.transitLinks, links);
+  }
+
+  clearTransitLinks() {
+    conf.delete(keys.transitLinks);
   }
 }
 

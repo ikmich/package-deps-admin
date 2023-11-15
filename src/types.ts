@@ -1,4 +1,4 @@
-export type TPackageManager = 'npm' | 'yarn' | 'bun' | 'pnpm';
+export type PackageManagerName = 'npm' | 'yarn' | 'bun' | 'pnpm';
 
 export type Dependency = {
   name: string;
@@ -13,11 +13,11 @@ export type InstallOpts = {
   dependencies?: DependencyRefArray;
   devDependencies?: DependencyRefArray;
   globalDependencies?: DependencyRefArray;
-  packageManager?: TPackageManager;
+  packageManager?: PackageManagerName;
 }
 
 export type UninstallOpts = {
   packageRoot: string;
   dependencies: DependencyRefArray,
-  packageManager: TPackageManager
+  packageManager: PackageManagerName
 }

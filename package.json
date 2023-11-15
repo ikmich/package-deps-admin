@@ -1,7 +1,7 @@
 {
   "name": "package-deps-admin",
-  "version": "0.0.1-alpha",
-  "description": "Manage package dependencies",
+  "version": "0.0.1-SNAPSHOT.0",
+  "description": "Manage node project package dependencies",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -11,9 +11,26 @@
     "prepublishOnly": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "files": [
+    "dist/",
+    "LICENSE",
+    "package.json",
+    "README.md"
+  ],
+  "keywords": [
+    "package manager",
+    "package.json",
+    "dependency",
+    "dependencies"
+  ],
   "author": "Ikenna Agbasimalo <michfx@gmail.com>",
-  "license": "ISC",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16"
+  },
+  "maintainers": [
+    "Ikenna Agbasimalo <michfx@gmail.com>"
+  ],
   "dependencies": {
     "@ikmich/utilis": "^1.0.25-alpha",
     "chalk": "^5.3.0",
