@@ -1,35 +1,39 @@
 import { logError, logInfo, logNotice, logWarn } from './log.util.js';
-import { DependencyRefArray } from './types.js';
+import { DependencyRefArray, PackageManagerName } from './types.js';
 import {
+  _fn,
   _ifDev,
   assertPackageManager,
   assertPackageRoot,
+  colorUtil,
   dependencyRefUtil,
   depsUtil,
   optionFlagsUtil
 } from './util.js';
 import shell from 'shelljs';
-import chalk from 'chalk';
 import { PackageDomain } from './package-domain.js';
 
 export type InstallInstruction = {
   dependencies: DependencyRefArray;
-  undoFn: () => any;
+  undoFn: () => Promise<any>;
 }
 
 export type InstallOpts = {
-  domain: PackageDomain;
+  /**
+   * If no domain, a global installation is implied.
+   */
+  domain?: PackageDomain;
   // packageRoot: string;
   // runtimeDependencies?: DependencyRefArray;
   // devDependencies?: DependencyRefArray;
   // globalDependencies?: DependencyRefArray;
-  runtimeDependencies?: DependencyRefArray;
-  devDependencies?: DependencyRefArray;
-  globalDependencies?: DependencyRefArray;
-  // packageManager?: PackageManagerName;
+  runtimeInstallInstruction?: InstallInstruction;
+  devInstallInstruction?: InstallInstruction;
+  globalInstallInstruction?: InstallInstruction;
+  packageManager?: PackageManagerName;
 
   /**
-   * Set this to true to use the version property of the DependencyRef objects when doing the install command.
+   * Set this to true to use the version property of the DependencyRef objects when doing the "install" command.
    */
   versionSpecific?: boolean;
 
@@ -57,22 +61,39 @@ export type UninstallOpts = {
   // packageManager: PackageManagerName
 }
 
-export async function installDependencies(opts: InstallOpts, undoCb: () => unknown) {
+export async function installDependencies(opts: InstallOpts) {
   const {
     domain,
-    runtimeDependencies = [],
-    devDependencies = [],
-    globalDependencies = [],
+    packageManager,
+    runtimeInstallInstruction,
+    devInstallInstruction,
+    globalInstallInstruction,
     versionSpecific = false,
     useOptionNpmLegacyPeerDeps = false,
     useOptionForce = false,
     extraOptions = []
   } = opts;
 
-  const { packageManager, packageRoot } = domain;
+  const { packageRoot } = domain || {};
 
-  assertPackageRoot(packageRoot);
-  assertPackageManager(packageManager);
+  const resolvedPackageManager = _fn(() => {
+    if (packageManager) {
+      return packageManager;
+    }
+    if (domain?.packageManager) {
+      return domain?.packageManager;
+    }
+    return 'npm';
+  });
+
+  if (packageRoot) {
+    assertPackageRoot(packageRoot);
+  }
+  assertPackageManager(resolvedPackageManager);
+
+  const runtimeDependencies = runtimeInstallInstruction?.dependencies || [];
+  const devDependencies = devInstallInstruction?.dependencies || [];
+  const globalDependencies = globalInstallInstruction?.dependencies || [];
 
   const noDeps = !runtimeDependencies.length && !devDependencies.length && !globalDependencies.length;
 
@@ -86,7 +107,10 @@ export async function installDependencies(opts: InstallOpts, undoCb: () => unkno
   const hasGlobalDependencies = globalDependencies.length > 0;
   const hasExtraOptions = extraOptions.length > 0;
 
-  const extraOptionsRef = optionFlagsUtil.flatten(extraOptions);
+  let extraOptionsRef = '';
+  if (hasExtraOptions) {
+    extraOptionsRef = optionFlagsUtil.flatten(extraOptions);
+  }
 
   let cmdRuntimeDependencies: string = ``;
   let cmdDevDependencies: string = ``;
@@ -118,37 +142,39 @@ export async function installDependencies(opts: InstallOpts, undoCb: () => unkno
   let globalPackageRefs: string = depsUtil.flatten(globalDependencies, versionSpecific);
 
   if (hasRuntimeDependencies) {
-    cmdRuntimeDependencies += `${packageManager} ${actions[packageManager]} ${runtimePackageRefs} `;
+    cmdRuntimeDependencies += `${resolvedPackageManager} ${actions[resolvedPackageManager]} ${runtimePackageRefs} `;
 
     if (useOptionForce) {
       cmdRuntimeDependencies += ` --force `;
     }
-    if (useOptionNpmLegacyPeerDeps && packageManager == 'npm') {
+    if (useOptionNpmLegacyPeerDeps && resolvedPackageManager == 'npm') {
       cmdRuntimeDependencies += ` --legacy-peer-deps `;
     }
 
-    cmdRuntimeDependencies += ` ${extraOptionsRef}`;
-  }
-
-  if (hasGlobalDependencies) {
-    cmdGlobalDependencies += `${packageManager} ${actions[packageManager]} ${globalOptions[packageManager]} ${globalPackageRefs} `;
+    cmdRuntimeDependencies += ` ${extraOptionsRef} `;
   }
 
   if (hasDevDependencies) {
-    cmdDevDependencies += `${packageManager} ${actions[packageManager]} ${devOptions[packageManager]} ${devPackageRefs} `;
+    cmdDevDependencies += `${resolvedPackageManager} ${actions[resolvedPackageManager]} ${devOptions[resolvedPackageManager]} ${devPackageRefs} `;
 
     if (useOptionForce) {
       cmdDevDependencies += ` --force `;
     }
-    if (useOptionNpmLegacyPeerDeps && packageManager == 'npm') {
+    if (useOptionNpmLegacyPeerDeps && resolvedPackageManager == 'npm') {
       cmdDevDependencies += ` --legacy-peer-deps `;
     }
 
     cmdDevDependencies += ` ${extraOptionsRef}`;
   }
 
+
+  if (hasGlobalDependencies) {
+    cmdGlobalDependencies += `${resolvedPackageManager} ${actions[resolvedPackageManager]} ${globalOptions[resolvedPackageManager]} ${globalPackageRefs} `;
+  }
+
   cmdRuntimeDependencies = cmdRuntimeDependencies.trim();
   cmdDevDependencies = cmdDevDependencies.trim();
+  cmdGlobalDependencies = cmdGlobalDependencies.trim();
 
   _ifDev(() => {
     console.log('[installDependencies()]', {
@@ -158,8 +184,9 @@ export async function installDependencies(opts: InstallOpts, undoCb: () => unkno
     });
   });
 
+  // RUNTIME DEPENDENCIES
   if (hasRuntimeDependencies) {
-    logInfo(`\nInstalling runtime dependencies (${runtimePackageRefs}) in root "${chalk.yellow(packageRoot)}"`);
+    logInfo(`\nInstalling runtime dependencies (${runtimePackageRefs}) in root "${colorUtil.yellowText(packageRoot)}"`);
 
     const output = shell.exec(`${cmdRuntimeDependencies}`, { cwd: packageRoot });
     if (output.stdout) {
@@ -169,13 +196,19 @@ export async function installDependencies(opts: InstallOpts, undoCb: () => unkno
       logError(output.stderr);
     }
     if (output.code !== 0) {
-      throw chalk.red(`Command failed: "${cmdRuntimeDependencies}"`);
+
+      logError(`Command failed: "${colorUtil.yellowText(cmdRuntimeDependencies)}"`);
+      logNotice('Attempting to run undo callback function if implemented...');
+      await runtimeInstallInstruction?.undoFn();
+      // throw chalk.red(`Command failed: "${cmdRuntimeDependencies}"`);
+    } else {
+      logNotice(`-> runtime dependencies installed: \n`);
     }
-    logNotice(`-> runtime dependencies installed: \n`);
   }
 
+  // DEV DEPENDENCIES
   if (hasDevDependencies) {
-    logInfo(`\nInstalling dev dependencies (${devPackageRefs}) in root "${chalk.yellow(packageRoot)}"`);
+    logInfo(`\nInstalling dev dependencies (${colorUtil.yellowText(devPackageRefs)}) in root "${colorUtil.yellowText(packageRoot)}"`);
 
     const output = shell.exec(`${cmdDevDependencies}`, { cwd: packageRoot });
     if (output.stdout) {
@@ -185,15 +218,20 @@ export async function installDependencies(opts: InstallOpts, undoCb: () => unkno
       logError(output.stderr);
     }
     if (output.code !== 0) {
-      throw chalk.red(`Command failed: "${cmdDevDependencies}"`);
+      logNotice('Attempting to run undo callback function if implemented...');
+      await devInstallInstruction?.undoFn();
+      logError(`Command failed: "${colorUtil.yellowText(cmdDevDependencies)}"`);
+      // throw chalk.red(`Command failed: "${cmdDevDependencies}"`);
+    } else {
+      logNotice(`-> dev dependencies installed: \n`);
     }
-    logNotice(`-> dev dependencies installed: \n`);
   }
 
+  // GLOBAL DEPENDENCIES
   if (hasGlobalDependencies) {
-    logInfo(`\nInstalling global dependencies (${globalPackageRefs}) in root "${chalk.yellow(packageRoot)}"`);
+    logInfo(`\nInstalling global dependencies (${colorUtil.yellowText(globalPackageRefs)})`);
 
-    const output = shell.exec(`${cmdGlobalDependencies}`, { cwd: packageRoot });
+    const output = shell.exec(`${cmdGlobalDependencies}`);
     if (output.stdout) {
       logInfo(output.stdout);
     }
@@ -201,11 +239,14 @@ export async function installDependencies(opts: InstallOpts, undoCb: () => unkno
       logError(output.stderr);
     }
     if (output.code !== 0) {
-      throw chalk.red(`Command failed: "${cmdGlobalDependencies}"`);
+      logError(`Command failed: "${colorUtil.yellowText(cmdGlobalDependencies)}"`);
+      logNotice('Attempting to run undo callback function if implemented...');
+      await globalInstallInstruction?.undoFn();
+      // throw chalk.red(`Command failed: "${cmdGlobalDependencies}"`);
+    } else {
+      logNotice(`-> global dependencies installed: \n`);
     }
-    logNotice(`-> global dependencies installed: \n`);
   }
-
 }
 
 export async function uninstallDependencies(opts: UninstallOpts) {
@@ -222,10 +263,10 @@ export async function uninstallDependencies(opts: UninstallOpts) {
   const undoFunction = async () => {
     const reinstalls = {
       runtime: domain.runtimeDependencies.filter(runtimeDep => {
-        return dependencyRefUtil.find(dependencies, runtimeDep.name);
+        return dependencyRefUtil.containsByName(dependencies, runtimeDep.name);
       }),
       dev: domain.devDependencies.filter(devDep => {
-        return dependencyRefUtil.find(dependencies, devDep.name);
+        return dependencyRefUtil.containsByName(dependencies, devDep.name);
       })
     };
 
@@ -245,7 +286,7 @@ export async function uninstallDependencies(opts: UninstallOpts) {
   };
 
   let refs = depsUtil.flatten(dependencies);
-  logNotice(`\nUninstalling dependencies (${refs}); from root: "${chalk.yellow(packageRoot)}"`);
+  logInfo(`\nUninstalling dependencies (${refs}); from root: "${colorUtil.yellowText(packageRoot)}"`);
 
   const cmd = `${packageManager} ${actions[packageManager]} ${refs}`;
 
@@ -260,7 +301,8 @@ export async function uninstallDependencies(opts: UninstallOpts) {
 
   if (output.code !== 0) {
     // undo? reinstall exact versions as before the uninstallation.
-    logNotice('Uninstall failed. Re-installing removed dependencies.');
+    logError('Uninstall failed.');
+    logNotice('Attempting to re-install the removed dependencies...');
     await undoFunction();
     return;
   }

@@ -108,36 +108,45 @@ export class PackageDomain {
   }
 
   async installRuntimeDependency(dep: DependencyRef) {
-    // await this.__installDependency(dep);
     await installDependencies({
       domain: this,
-      runtimeDependencies: [dep]
-    }, () => {
+      runtimeInstallInstruction: {
+        dependencies: [dep],
+        undoFn: async () => {
+        }
+      }
     });
   }
 
   async installRuntimeDependencies(depRefs: DependencyRefArray) {
     await installDependencies({
       domain: this,
-      runtimeDependencies: depRefs
-    }, () => {
+      runtimeInstallInstruction: {
+        dependencies: depRefs,
+        undoFn: async () => {
+        }
+      }
     });
   }
 
   async installDevDependency(depRef: DependencyRef) {
     await installDependencies({
       domain: this,
-      devDependencies: [depRef] as DependencyRefArray
-    }, () => {
+      devInstallInstruction: {
+        dependencies: [depRef],
+        undoFn: async () => {
+        }
+      }
     });
   }
 
   async installDevDependencies(deps: DependencyRefArray) {
-    // await this.__installDependencies(deps, true);
     await installDependencies({
       domain: this,
-      devDependencies: deps
-    }, () => {
+      devInstallInstruction: {
+        dependencies: deps,
+        undoFn: () => Promise.resolve()
+      }
     });
   }
 

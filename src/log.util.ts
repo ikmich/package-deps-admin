@@ -14,7 +14,8 @@ export function logNotice(arg0?: any, ...arg1: any[]) {
 }
 
 export function logWarn(arg0?: any, ...arg1: any[]) {
-  console.warn(chalk.hex('#FF7A00')(arg0, arg1));
+  console.warn(chalk.yellow(arg0, arg1));
+  // console.warn(chalk.hex('#FF7A00')(arg0, arg1));
 }
 
 export function logSuccess(arg0?: any, ...arg1: any[]) {
@@ -23,5 +24,6 @@ export function logSuccess(arg0?: any, ...arg1: any[]) {
 
 export function logInfo(arg0?: any, ...arg1: any[]) {
   // blueBright
-  console.log(chalk.hex('#20b1ff')(arg0, arg1));
+  console.log(chalk.blueBright(arg0, arg1));
+  // console.log(chalk.hex('#20b1ff')(arg0, arg1));
 }

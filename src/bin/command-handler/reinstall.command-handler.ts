@@ -1,9 +1,9 @@
 import { Command } from 'commander';
-import { commandUtil } from './util.js';
 import { getPackageDomainForRoot } from '../../package-domain.js';
 import { installDependencies, InstallOpts, uninstallDependencies } from '../../installer.js';
 import { CliOpts } from '../index.js';
 import { PackageManagerName } from '../../types.js';
+import { commandUtil, dependencyRefUtil } from '../../util.js';
 
 export const reinstallCommandHandler = {
   async execute(command: Command) {
@@ -28,9 +28,8 @@ export const reinstallCommandHandler = {
 
     // ---
 
-    const installOpts: InstallOpts = {
-      domain,
-      runtimeDependencies: domain.runtimeDependencies
+    let installOpts: InstallOpts = {
+      domain
     };
 
     if (opts.force) {
@@ -48,9 +47,25 @@ export const reinstallCommandHandler = {
         dependencies: dependencyRefs
       });
 
-      await installDependencies(installOpts, () => {
-      });
-      // await domain.reinstallDependencies(dependencyRefs);
+      installOpts = {
+        ...installOpts,
+        runtimeInstallInstruction: {
+          dependencies: domain.runtimeDependencies.filter(item => {
+            return dependencyRefUtil.containsByName(dependencyRefs, item.name);
+          }),
+          undoFn: async () => {
+          }
+        },
+        devInstallInstruction: {
+          dependencies: domain.devDependencies.filter(item => {
+            return dependencyRefUtil.containsByName(dependencyRefs, item.name);
+          }),
+          undoFn: async () => {
+          }
+        }
+      };
+
+      await installDependencies(installOpts);
     } else if (!!depType) {
       /* No dependencyRefs available but a dep-type is specified. Reinstall only the dep-type dependencies. */
 
@@ -58,32 +73,59 @@ export const reinstallCommandHandler = {
         case 'runtime':
           await domain.removeRuntimeDependencies();
 
-          installOpts.runtimeDependencies = domain.runtimeDependencies;
-          delete installOpts.devDependencies;
-          delete installOpts.globalDependencies;
+          installOpts = {
+            ...installOpts,
+            domain,
+            runtimeInstallInstruction: {
+              dependencies: domain.runtimeDependencies,
+              undoFn: async () => {
+              }
+            },
+            devInstallInstruction: undefined,
+            globalInstallInstruction: undefined
+          };
 
           break;
 
         case 'dev':
           await domain.removeDevDependencies();
 
-          installOpts.devDependencies = domain.devDependencies;
-          delete installOpts.runtimeDependencies;
-          delete installOpts.globalDependencies;
+          installOpts = {
+            ...installOpts,
+            domain,
+            devInstallInstruction: {
+              dependencies: domain.devDependencies,
+              undoFn: async () => {
+              }
+            },
+            runtimeInstallInstruction: undefined,
+            globalInstallInstruction: undefined
+          };
 
           break;
 
         case 'all':
           await domain.removeAllDependencies();
 
-          installOpts.devDependencies = domain.devDependencies;
-          installOpts.runtimeDependencies = domain.runtimeDependencies;
-
+          installOpts = {
+            ...installOpts,
+            domain,
+            runtimeInstallInstruction: {
+              dependencies: domain.runtimeDependencies,
+              undoFn: async () => {
+              }
+            },
+            devInstallInstruction: {
+              dependencies: domain.devDependencies,
+              undoFn: async () => {
+              }
+            },
+            globalInstallInstruction: undefined
+          };
           break;
       }
 
-      await installDependencies(installOpts, () => {
-      });
+      await installDependencies(installOpts);
     }
   }
 };

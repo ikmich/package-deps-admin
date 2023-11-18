@@ -25,7 +25,7 @@ program
   .option('--all', 'Apply to all dependencies')
   .option('--npm-legacy-peer-deps', 'Use --legacy-peer-deps npm option')
   .option('--pm | --package-manager <char>', 'The package manager to use. Supported: npm, yarn, pnpm, bun.')
-  .option('-f | --force', 'Apply the force option')
+  .option('--force', 'Apply the force option')
 ;
 
 program

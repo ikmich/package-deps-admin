@@ -4,6 +4,7 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import { DependencyRef, DependencyRefArray, PackageManagerName } from './types.js';
 import shell from 'shelljs';
+import { CliOpts } from './bin/index.js';
 
 export const require = createRequire(import.meta.url);
 
@@ -88,6 +89,21 @@ export const dependencyRefUtil = {
         }
       }
     }
+  },
+
+  containsByName(deps: DependencyRefArray, dependencyName: string): boolean {
+    for (let dep of deps) {
+      if (typeof dep == 'string') {
+        if (dep === dependencyName) {
+          return true;
+        }
+      } else {
+        if (dep.name === dependencyName) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 };
 
@@ -126,3 +142,40 @@ export async function _delay(ms: number, msg?: string) {
     }, ms);
   });
 }
+
+export function _fn<T extends any>(f: () => T) {
+  return f();
+}
+
+export const colorUtil = {
+  yellowText(s?: string) {
+    return chalk.yellow(s);
+  },
+
+  blueText(s?: string) {
+    return chalk.blueBright(s);
+  }
+};
+
+export const commandUtil = {
+  isValidDepType(s: string): boolean {
+    return ['runtime', 'dev', 'all'].includes(s);
+  },
+
+  resolveDepType(opts: CliOpts): string {
+    let depType: string = '';
+    const optKeys = Object.keys(opts);
+    for (let k of optKeys) {
+      if (commandUtil.isValidDepType(k)) {
+        depType = k;
+      }
+    }
+
+    if (!depType || depType.length === 0) {
+      depType = 'all';
+    }
+
+    return depType;
+  }
+
+};
