@@ -2,9 +2,8 @@ import { createRequire } from 'module';
 import Path from 'node:path';
 import fs from 'fs-extra';
 import chalk from 'chalk';
-import { DependencyRef, DependencyRefArray, PackageManagerName } from './types.js';
+import { DependencyRef, DependencyRefArray, PackageManagerValue } from './types.js';
 import shell from 'shelljs';
-import { CliOpts } from './bin/index.js';
 
 export const require = createRequire(import.meta.url);
 
@@ -29,12 +28,12 @@ export function assertPackageRoot(domainRoot: string) {
   }
 }
 
-export function isPackageManagerInstalled(packageManager: PackageManagerName) {
+export function isPackageManagerInstalled(packageManager: PackageManagerValue) {
   const output = shell.which(packageManager)?.trim();
   return !!output;
 }
 
-export function assertPackageManager(packageManager: PackageManagerName) {
+export function assertPackageManager(packageManager: PackageManagerValue) {
   const msg = `!ERROR! It seems package manager "${packageManager}" is not installed. Install it and try again, or choose another package manager that is installed.`;
   if (!isPackageManagerInstalled(packageManager)) {
     throw chalk.red(msg);
@@ -157,25 +156,4 @@ export const colorUtil = {
   }
 };
 
-export const commandUtil = {
-  isValidDepType(s: string): boolean {
-    return ['runtime', 'dev', 'all'].includes(s);
-  },
-
-  resolveDepType(opts: CliOpts): string {
-    let depType: string = '';
-    const optKeys = Object.keys(opts);
-    for (let k of optKeys) {
-      if (commandUtil.isValidDepType(k)) {
-        depType = k;
-      }
-    }
-
-    if (!depType || depType.length === 0) {
-      depType = 'all';
-    }
-
-    return depType;
-  }
-
-};
+export const emptyUndoFn = () => Promise.resolve();

@@ -9,8 +9,8 @@ export function logError(arg0?: any, ...arg1: any[]) {
 }
 
 export function logNotice(arg0?: any, ...arg1: any[]) {
-  console.log(chalk.yellow(arg0, arg1));
-  // console.log(chalk.hex('#FFE500')(arg0, arg1));
+  // console.log(chalk.yellow(arg0, arg1));
+  console.log(chalk.hex('#FFE500')(arg0, arg1));
 }
 
 export function logWarn(arg0?: any, ...arg1: any[]) {

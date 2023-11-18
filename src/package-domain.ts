@@ -1,5 +1,5 @@
 import { _delay, readPkgJson } from './util.js';
-import { Dependency, DependencyRef, DependencyRefArray, PackageManagerName } from './types.js';
+import { Dependency, DependencyRef, DependencyRefArray, PackageManagerValue, UndoFn } from './types.js';
 import { installDependencies, uninstallDependencies } from './installer.js';
 import { store } from './store.js';
 import fs from 'fs-extra';
@@ -27,7 +27,7 @@ function hasLockFile(packageRoot: string, filename?: string) {
   });
 }
 
-function inferPackageManagerFromLockFile(packageRoot: string): PackageManagerName {
+function inferPackageManagerFromLockFile(packageRoot: string): PackageManagerValue {
   switch (true) {
     case hasLockFile(packageRoot, npm_lock):
       return 'npm';
@@ -60,7 +60,7 @@ export class PackageDomain {
    * @param packageManager
    */
   constructor(
-    readonly packageRoot: string, readonly packageManager: PackageManagerName = inferPackageManagerFromLockFile(packageRoot)
+    readonly packageRoot: string, readonly packageManager: PackageManagerValue = inferPackageManagerFromLockFile(packageRoot)
   ) {
     pkgJson = readPkgJson(packageRoot);
     this.packageName = pkgJson['name'];
@@ -68,7 +68,6 @@ export class PackageDomain {
 
     this.loadDependencies();
   }
-
 
   private loadDependencies() {
     const depsMap = pkgJson['dependencies'];
@@ -118,34 +117,32 @@ export class PackageDomain {
     });
   }
 
-  async installRuntimeDependencies(depRefs: DependencyRefArray) {
+  async installRuntimeDependencies(depRefs: DependencyRefArray, undoFn: UndoFn) {
     await installDependencies({
       domain: this,
       runtimeInstallInstruction: {
         dependencies: depRefs,
-        undoFn: async () => {
-        }
+        undoFn
       }
     });
   }
 
-  async installDevDependency(depRef: DependencyRef) {
+  async installDevDependency(depRef: DependencyRef, undoFn: UndoFn) {
     await installDependencies({
       domain: this,
       devInstallInstruction: {
         dependencies: [depRef],
-        undoFn: async () => {
-        }
+        undoFn
       }
     });
   }
 
-  async installDevDependencies(deps: DependencyRefArray) {
+  async installDevDependencies(deps: DependencyRefArray, undoFn: UndoFn) {
     await installDependencies({
       domain: this,
       devInstallInstruction: {
         dependencies: deps,
-        undoFn: () => Promise.resolve()
+        undoFn
       }
     });
   }
@@ -188,8 +185,9 @@ export class PackageDomain {
   /**
    * Uninstall and install a dependency. This can serve as a good way to upgrade to the latest available version.
    * @param dep
+   * @param undoFn
    */
-  async reinstallDependency(dep: DependencyRef) {
+  async reinstallDependency(dep: DependencyRef, undoFn: UndoFn) {
 
     await this.removeDependencies([dep] as DependencyRefArray);
     await _delay(500);
@@ -199,7 +197,7 @@ export class PackageDomain {
     }
 
     if (this.isDevDependency(dep)) {
-      await this.installDevDependency(dep);
+      await this.installDevDependency(dep, undoFn);
     }
   }
 
@@ -207,7 +205,7 @@ export class PackageDomain {
    * Uninstall and install dependencies. This can serve as a good way to upgrade to the latest available versions.
    * @param deps
    */
-  async reinstallDependencies(deps: DependencyRefArray) {
+  async reinstallDependencies(deps: DependencyRefArray, undoFn: UndoFn) {
     await this.removeDependencies(deps);
     await _delay(500);
 
@@ -221,31 +219,31 @@ export class PackageDomain {
       }
     }
 
-    await this.installRuntimeDependencies(runtimeDeps);
-    await this.installDevDependencies(devDeps);
+    await this.installRuntimeDependencies(runtimeDeps, undoFn);
+    await this.installDevDependencies(devDeps, undoFn);
   }
 
-  async reinstallAllDependencies() {
+  async reinstallAllDependencies(undoFn: UndoFn) {
     // const runtimeDeps = Array.from(this.runtimeDependencies);
     // const devDeps = Array.from(this.devDependencies);
 
     await this.removeDependencies(this.runtimeDependencies);
     await this.removeDependencies(this.devDependencies);
     await _delay(500);
-    await this.installRuntimeDependencies(this.runtimeDependencies);
-    await this.installDevDependencies(this.devDependencies);
+    await this.installRuntimeDependencies(this.runtimeDependencies, undoFn);
+    await this.installDevDependencies(this.devDependencies, undoFn);
   }
 
-  async reinstallRuntimeDependencies() {
+  async reinstallRuntimeDependencies(undoFn: UndoFn) {
     await this.removeDependencies(this.runtimeDependencies);
     await _delay(500);
-    await this.installRuntimeDependencies(this.runtimeDependencies);
+    await this.installRuntimeDependencies(this.runtimeDependencies, undoFn);
   }
 
-  async reinstallDevDependencies() {
+  async reinstallDevDependencies(undoFn: UndoFn) {
     await this.removeDependencies(this.devDependencies);
     await _delay(500);
-    await this.installDevDependencies(this.devDependencies);
+    await this.installDevDependencies(this.devDependencies, undoFn);
   }
 
   isRuntimeDependency(dep: DependencyRef): boolean {
@@ -308,11 +306,11 @@ export class PackageDomain {
     }
 
     if (foreignRuntimeDependencySet.size) {
-      await dest.installRuntimeDependencies(Array.from(foreignRuntimeDependencySet));
+      await dest.installRuntimeDependencies(Array.from(foreignRuntimeDependencySet), () => Promise.resolve());
     }
 
     if (foreignDevDependencySet.size) {
-      await dest.installDevDependencies(Array.from(foreignDevDependencySet));
+      await dest.installDevDependencies(Array.from(foreignDevDependencySet), () => Promise.resolve());
     }
 
     store.saveTransitLink({
