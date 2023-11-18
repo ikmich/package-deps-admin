@@ -1,44 +1,45 @@
 import { CliOpts, DepType } from '../index.js';
 import { Command } from 'commander';
-import { DependencyRef } from '../../types.js';
 import { getPackageDomainForRoot, PackageDomain } from '../../package-domain.js';
 
 export type ResolvedInputs = {
   dependencyType?: DepType;
-  dependencyNames?: string[];
-  hasDependencyRefs: boolean;
+  dependencies?: string[];
+  hasDependencies: boolean;
   usingForceOption: boolean;
   usingNpmLegacyPeerDepsOptions: boolean;
   packageManager?: string;
   domain: PackageDomain;
-  isRuntimeDeps: boolean;
-  isDevDeps: boolean;
+  isRuntimeDepType: boolean;
+  isDevDepType: boolean;
   hasDepTypeOption: boolean;
+  hasAllOption: boolean;
 }
 
 export const InstallCommandBase = {
   resolveInputs(command: Command): ResolvedInputs {
     const opts = command.opts<CliOpts>();
 
-    const dependencyRefs = this.getDependencyRefs(command);
+    const deps = this.getDependencies(command);
 
     const depType = this.resolveDepType(opts);
 
     return {
-      dependencyNames: dependencyRefs,
-      hasDependencyRefs: Array.isArray(dependencyRefs) && dependencyRefs.length > 0,
+      dependencies: deps,
+      hasDependencies: Array.isArray(deps) && deps.length > 0,
       usingForceOption: opts.force ?? false,
       usingNpmLegacyPeerDepsOptions: opts.npmLegacyPeerDeps ?? false,
       dependencyType: depType as DepType,
       packageManager: opts.packageManager,
       domain: getPackageDomainForRoot(process.cwd()),
-      isDevDeps: depType == 'dev',
-      isRuntimeDeps: depType == 'runtime',
+      isDevDepType: depType == 'dev',
+      isRuntimeDepType: depType == 'runtime',
+      hasAllOption: opts.all === true,
       hasDepTypeOption: typeof opts.dev != 'undefined' || typeof opts.runtime != 'undefined' /*|| typeof opts['global'] == 'undefined'*/
     };
   },
 
-  getDependencyRefs(command: Command) {
+  getDependencies(command: Command) {
     const dependencyRefs = Array.from(command.args) || [];
     dependencyRefs.shift();
     return dependencyRefs;

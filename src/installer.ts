@@ -186,7 +186,7 @@ export async function installDependencies(opts: InstallOpts) {
 
   // RUNTIME DEPENDENCIES
   if (hasRuntimeDependencies) {
-    logInfo(`\n-> Installing runtime dependencies (${runtimePackageRefs}) in root "${colorUtil.yellowText(packageRoot)}"`);
+    logInfo(`\n-> Installing runtime dependencies (${colorUtil.yellowText(runtimePackageRefs)}) in root "${colorUtil.yellowText(packageRoot)}"`);
 
     const output = shell.exec(`${cmdRuntimeDependencies}`, { cwd: packageRoot });
     if (output.stdout) {

@@ -3,6 +3,7 @@
 import { Command } from 'commander';
 import { reinstallCommandHandler } from './command-handler/reinstall.command-handler.js';
 import { installCommandHandler } from './command-handler/install.command-handler.js';
+import { uninstallCommandHandler } from './command-handler/uninstall.command-handler.js';
 
 const cmd_reinstall = 'reinstall';
 const cmd_install = 'install';
@@ -46,12 +47,14 @@ program
     await installCommandHandler.execute(program);
   });
 
-// program
-//   .command(cmd_uninstall)
-//   .description('Uninstall one or more dependencies.')
-//   .action(async () => {
-//     await uninstallCommandHandler.execute(program);
-//   });
+program
+  .command(cmd_uninstall)
+  .description('Uninstall one or more dependencies.')
+  .action(async () => {
+    await uninstallCommandHandler.execute(program);
+  });
 
 program.parse();
+
+// todo - cli prompt user to accept commands first. safety is key.
 

@@ -1,5 +1,5 @@
 import { _delay, readPkgJson } from './util.js';
-import { Dependency, DependencyRef, DependencyRefArray, PackageManagerValue, UndoFn } from './types.js';
+import { Dependency, DependencyRef, PackageManagerValue, UndoFn } from './types.js';
 import { installDependencies, uninstallDependencies } from './installer.js';
 import { store } from './store.js';
 import fs from 'fs-extra';
@@ -117,7 +117,7 @@ export class PackageDomain {
     });
   }
 
-  async installRuntimeDependencies(depRefs: DependencyRefArray, undoFn: UndoFn) {
+  async installRuntimeDependencies(depRefs: DependencyRef[], undoFn: UndoFn) {
     await installDependencies({
       domain: this,
       runtimeInstallInstruction: {
@@ -137,7 +137,7 @@ export class PackageDomain {
     });
   }
 
-  async installDevDependencies(deps: DependencyRefArray, undoFn: UndoFn) {
+  async installDevDependencies(deps: DependencyRef[], undoFn: UndoFn) {
     await installDependencies({
       domain: this,
       devInstallInstruction: {
@@ -154,7 +154,7 @@ export class PackageDomain {
     });
   }
 
-  async removeDependencies(deps: DependencyRefArray) {
+  async removeDependencies(deps: DependencyRef[]) {
     await uninstallDependencies({
       domain: this,
       dependencies: deps
@@ -189,7 +189,7 @@ export class PackageDomain {
    */
   async reinstallDependency(dep: DependencyRef, undoFn: UndoFn) {
 
-    await this.removeDependencies([dep] as DependencyRefArray);
+    await this.removeDependencies([dep] as DependencyRef[]);
     await _delay(500);
 
     if (this.isRuntimeDependency(dep)) {
@@ -204,8 +204,9 @@ export class PackageDomain {
   /**
    * Uninstall and install dependencies. This can serve as a good way to upgrade to the latest available versions.
    * @param deps
+   * @param undoFn
    */
-  async reinstallDependencies(deps: DependencyRefArray, undoFn: UndoFn) {
+  async reinstallDependencies(deps: DependencyRef[], undoFn: UndoFn) {
     await this.removeDependencies(deps);
     await _delay(500);
 

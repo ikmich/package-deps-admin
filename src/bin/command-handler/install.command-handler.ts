@@ -11,13 +11,13 @@ export const installCommandHandler = {
 
     const resolvedInputs = InstallCommandBase.resolveInputs(command);
 
-    if (!resolvedInputs.hasDependencyRefs) {
+    if (!resolvedInputs.hasDependencies) {
       logError(`!ERROR! No dependencies provided.`);
       return;
     }
 
     // const depType = resolvedInputs.dependencyType;
-    const dependencies = resolvedInputs.dependencyNames || [];
+    const dependencies = resolvedInputs.dependencies || [];
     const domain = getPackageDomainForRoot(process.cwd());
 
     console.log({
@@ -29,7 +29,9 @@ export const installCommandHandler = {
     * domain. */
 
     let installOpts: InstallOpts = {
-      domain
+      domain,
+      useOptionNpmLegacyPeerDeps: resolvedInputs.usingNpmLegacyPeerDepsOptions,
+      useOptionForce: resolvedInputs.usingForceOption
     };
 
     const useCases = {

@@ -11,7 +11,7 @@ export const reinstallCommandHandler = {
 
     const opts = command.opts<CliOpts>();
     const resolvedInputs = InstallCommandBase.resolveInputs(command);
-    const dependencyRefs = resolvedInputs.dependencyNames || [];
+    const dependencyRefs = resolvedInputs.dependencies || [];
 
     let depType = resolvedInputs.dependencyType;
     const domain = resolvedInputs.domain;
@@ -43,7 +43,7 @@ export const reinstallCommandHandler = {
 
     /* If it has dependencyRefs, just uninstall and reinstall those. Ignore the dep-type option flags. */
     switch (true) {
-      case resolvedInputs.hasDependencyRefs: {
+      case resolvedInputs.hasDependencies: {
         await uninstallDependencies({
           domain,
           dependencies: dependencyRefs
