@@ -1,9 +1,10 @@
 import { Command } from 'commander';
 import { installDependencies, InstallOpts, uninstallDependencies } from '../../installer.js';
 import { CliOpts } from '../index.js';
-import { dependencyRefUtil } from '../../util.js';
+import { dependencyRefUtil, emptyUndoFn } from '../../util.js';
 import { InstallCommandBase } from './install-command.base.js';
 import { PackageManagerValue } from '../../types.js';
+import { logInfo } from '../../log.util.js';
 
 export const reinstallCommandHandler = {
   async execute(command: Command) {
@@ -20,30 +21,27 @@ export const reinstallCommandHandler = {
       deps: dependencyRefs,
       opts,
       selectedDepType: depType,
+      hasDepTypeOpt: resolvedInputs.hasDepTypeOption,
       packageManager: resolvedInputs.packageManager
     });
 
     // ---
 
     let installOpts: InstallOpts = {
-      domain
+      domain,
+      useOptionForce: resolvedInputs.usingForceOption,
+      useOptionNpmLegacyPeerDeps: resolvedInputs.usingNpmLegacyPeerDepsOptions
     };
 
     if (resolvedInputs.packageManager) {
       installOpts.packageManager = resolvedInputs.packageManager as PackageManagerValue;
     }
 
-    if (resolvedInputs.usingForceOption) {
-      installOpts.useOptionForce = true;
-    }
-
-    if (resolvedInputs.usingNpmLegacyPeerDepsOptions) {
-      installOpts.useOptionNpmLegacyPeerDeps = true;
-    }
-
     /* If it has dependencyRefs, just uninstall and reinstall those. Ignore the dep-type option flags. */
     switch (true) {
+
       case resolvedInputs.hasDependencies: {
+        logInfo('-> has dependencies');
         await uninstallDependencies({
           domain,
           dependencies: dependencyRefs
@@ -71,9 +69,9 @@ export const reinstallCommandHandler = {
         break;
       }
 
-      case !!depType: {
+      case resolvedInputs.hasDepTypeOption && !!depType: {
         /* No dependencyRefs available but a dep-type is specified. Reinstall only the dep-type dependencies. */
-
+        logInfo('-> has dependency type');
         switch (depType) {
           case 'runtime':
             await domain.removeRuntimeDependencies();
@@ -115,6 +113,7 @@ export const reinstallCommandHandler = {
       }
 
       default: {
+        logInfo('No deps');
         await domain.removeAllDependencies();
 
         installOpts = {
@@ -122,16 +121,16 @@ export const reinstallCommandHandler = {
           domain,
           runtimeInstallInstruction: {
             dependencies: domain.runtimeDependencies,
-            undoFn: async () => {
-            }
+            undoFn: emptyUndoFn
           },
           devInstallInstruction: {
             dependencies: domain.devDependencies,
-            undoFn: async () => {
-            }
+            undoFn: emptyUndoFn
           },
           globalInstallInstruction: undefined
         };
+
+        await installDependencies(installOpts);
       }
     }
   }
