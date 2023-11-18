@@ -2,9 +2,8 @@ import { createRequire } from 'module';
 import Path from 'node:path';
 import fs from 'fs-extra';
 import chalk from 'chalk';
-import { DependencyRefArray, PackageManagerName } from './types.js';
+import { DependencyRef, DependencyRefArray, PackageManagerName } from './types.js';
 import shell from 'shelljs';
-import { _env } from '@ikmich/utilis';
 
 export const require = createRequire(import.meta.url);
 
@@ -42,7 +41,7 @@ export function assertPackageManager(packageManager: PackageManagerName) {
 }
 
 export const depsUtil = {
-  getRefString(deps: DependencyRefArray, includeVersion: boolean = false): string {
+  flatten(deps: DependencyRefArray, includeVersion: boolean = false): string {
     let out = '';
 
     for (let dep of deps) {
@@ -61,10 +60,69 @@ export const depsUtil = {
 
     return out.trim();
   }
+
+};
+
+export const dependencyRefUtil = {
+  filter(deps: DependencyRefArray, cb: (dependencyName: string) => boolean): DependencyRefArray {
+    const filtered: DependencyRefArray = [];
+    for (let dep of deps) {
+      const name = typeof dep == 'string' ? dep : dep.name;
+      if (cb(name)) {
+        filtered.push(dep);
+      }
+    }
+
+    return filtered;
+  },
+
+  find(deps: DependencyRefArray, name: string): DependencyRef | undefined {
+    for (let dep of deps) {
+      if (typeof dep == 'string') {
+        if (dep === name) {
+          return dep;
+        }
+      } else {
+        if (dep.name === name) {
+          return dep;
+        }
+      }
+    }
+  }
+};
+
+export const optionFlagsUtil = {
+  flatten(options: string[]): string {
+    let out = '';
+    for (let opt of options) {
+      const rex = /^-(-?)/;
+      if (!rex.test(opt)) continue;
+      out += `${opt} `;
+    }
+    return out;
+  }
 };
 
 export function _ifDev(fn: () => any) {
-  if (_env('node_env') == 'development') {
+  if (process.env.NODE_ENV == 'development') {
     fn();
   }
+}
+
+/**
+ * Pauses execution for a period.
+ * @param ms
+ * @param msg Optional message to display while waiting.
+ */
+export async function _delay(ms: number, msg?: string) {
+  if (ms <= 0) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    if (msg) {
+      console.log(msg);
+    }
+    setTimeout(() => {
+      resolve(undefined);
+    }, ms);
+  });
 }

@@ -1,10 +1,48 @@
-import { _delay } from '@ikmich/utilis';
-import { readPkgJson } from './util.js';
+import { _delay, readPkgJson } from './util.js';
 import { Dependency, DependencyRef, DependencyRefArray, PackageManagerName } from './types.js';
 import { installDependencies, uninstallDependencies } from './installer.js';
 import { store } from './store.js';
+import fs from 'fs-extra';
+import Path from 'node:path';
 
 let pkgJson: any = {};
+const npm_lock = 'package-lock.json';
+const yarn_lock = 'yarn.lock';
+const bun_lock = 'bun.lockb';
+const bun_lock_alt = 'bun.lock';
+const pnpm_lock = 'pnpm-lock.yaml';
+const pnpm_lock_alt = 'pnpm.lock';
+
+const locks = [npm_lock, yarn_lock, bun_lock, bun_lock_alt, pnpm_lock, pnpm_lock_alt];
+
+function hasLockFile(packageRoot: string, filename?: string) {
+  if (filename) {
+    const file = Path.join(packageRoot, filename);
+    return fs.existsSync(file);
+  }
+
+  return locks.some(name => {
+    const file = Path.join(packageRoot, name);
+    return fs.existsSync(file);
+  });
+}
+
+function inferPackageManagerFromLockFile(packageRoot: string): PackageManagerName {
+  switch (true) {
+    case hasLockFile(packageRoot, npm_lock):
+      return 'npm';
+    case hasLockFile(packageRoot, yarn_lock):
+      return 'yarn';
+    case hasLockFile(packageRoot, bun_lock):
+    case hasLockFile(packageRoot, bun_lock_alt):
+      return 'bun';
+    case hasLockFile(packageRoot, pnpm_lock):
+    case hasLockFile(packageRoot, pnpm_lock_alt):
+      return 'pnpm';
+    default:
+      return 'npm';
+  }
+}
 
 /**
  * Represents a context that owns a package.json file and can have dependencies installed by node package managers.
@@ -18,14 +56,16 @@ export class PackageDomain {
 
   /**
    * Create new instance of PackageDomain
-   * @param tag The name of the app or project that owns the package.json config.
    * @param packageRoot The path to the dir containing package.json.
    * @param packageManager
    */
-  constructor(readonly tag: string, readonly packageRoot: string, readonly packageManager: PackageManagerName = 'npm') {
+  constructor(
+    readonly packageRoot: string, readonly packageManager: PackageManagerName = inferPackageManagerFromLockFile(packageRoot)
+  ) {
     pkgJson = readPkgJson(packageRoot);
     this.packageName = pkgJson['name'];
     this.packageVersion = pkgJson['version'];
+
     this.loadDependencies();
   }
 
@@ -70,59 +110,69 @@ export class PackageDomain {
   async installRuntimeDependency(dep: DependencyRef) {
     // await this.__installDependency(dep);
     await installDependencies({
-      packageRoot: this.packageRoot,
-      packageManager: this.packageManager,
-      dependencies: [dep] as DependencyRefArray
+      domain: this,
+      runtimeDependencies: [dep]
+    }, () => {
     });
   }
 
-  async installRuntimeDependencies(deps: DependencyRefArray) {
+  async installRuntimeDependencies(depRefs: DependencyRefArray) {
     await installDependencies({
-      packageRoot: this.packageRoot,
-      packageManager: this.packageManager,
-      dependencies: deps
+      domain: this,
+      runtimeDependencies: depRefs
+    }, () => {
     });
   }
 
-  async installDevDependency(dep: DependencyRef) {
+  async installDevDependency(depRef: DependencyRef) {
     await installDependencies({
-      packageManager: this.packageManager,
-      packageRoot: this.packageRoot,
-      devDependencies: [dep] as DependencyRefArray
+      domain: this,
+      devDependencies: [depRef] as DependencyRefArray
+    }, () => {
     });
   }
 
   async installDevDependencies(deps: DependencyRefArray) {
     // await this.__installDependencies(deps, true);
     await installDependencies({
-      packageRoot: this.packageRoot,
-      packageManager: this.packageManager,
+      domain: this,
       devDependencies: deps
+    }, () => {
     });
   }
 
   async removeDependency(dep: string) {
     await uninstallDependencies({
-      packageManager: this.packageManager,
-      packageRoot: this.packageRoot,
+      domain: this,
       dependencies: [dep]
     });
   }
 
   async removeDependencies(deps: DependencyRefArray) {
-    let packageRefs = '';
-    for (let dep of deps) {
-      if (typeof dep == 'string') {
-        packageRefs += `${dep} `;
-      } else {
-        packageRefs += `${dep.name} `;
-      }
-    }
-
     await uninstallDependencies({
-      packageManager: this.packageManager,
-      packageRoot: this.packageRoot,
+      domain: this,
       dependencies: deps
+    });
+  }
+
+  async removeRuntimeDependencies() {
+    await uninstallDependencies({
+      domain: this,
+      dependencies: this.runtimeDependencies
+    });
+  }
+
+  async removeDevDependencies() {
+    await uninstallDependencies({
+      domain: this,
+      dependencies: this.devDependencies
+    });
+  }
+
+  async removeAllDependencies() {
+    await uninstallDependencies({
+      domain: this,
+      dependencies: this.runtimeDependencies.concat(this.devDependencies)
     });
   }
 
@@ -131,9 +181,17 @@ export class PackageDomain {
    * @param dep
    */
   async reinstallDependency(dep: DependencyRef) {
+
     await this.removeDependencies([dep] as DependencyRefArray);
-    await _delay(1000);
-    await this.installRuntimeDependency(dep);
+    await _delay(500);
+
+    if (this.isRuntimeDependency(dep)) {
+      await this.installRuntimeDependency(dep);
+    }
+
+    if (this.isDevDependency(dep)) {
+      await this.installDevDependency(dep);
+    }
   }
 
   /**
@@ -142,8 +200,69 @@ export class PackageDomain {
    */
   async reinstallDependencies(deps: DependencyRefArray) {
     await this.removeDependencies(deps);
-    await _delay(1000);
-    await this.installRuntimeDependencies(deps);
+    await _delay(500);
+
+    let runtimeDeps: DependencyRef[] = [];
+    let devDeps: DependencyRef[] = [];
+    for (let dep of deps) {
+      if (this.isRuntimeDependency(dep)) {
+        runtimeDeps.push(dep);
+      } else if (this.isDevDependency(dep)) {
+        devDeps.push(dep);
+      }
+    }
+
+    await this.installRuntimeDependencies(runtimeDeps);
+    await this.installDevDependencies(devDeps);
+  }
+
+  async reinstallAllDependencies() {
+    // const runtimeDeps = Array.from(this.runtimeDependencies);
+    // const devDeps = Array.from(this.devDependencies);
+
+    await this.removeDependencies(this.runtimeDependencies);
+    await this.removeDependencies(this.devDependencies);
+    await _delay(500);
+    await this.installRuntimeDependencies(this.runtimeDependencies);
+    await this.installDevDependencies(this.devDependencies);
+  }
+
+  async reinstallRuntimeDependencies() {
+    await this.removeDependencies(this.runtimeDependencies);
+    await _delay(500);
+    await this.installRuntimeDependencies(this.runtimeDependencies);
+  }
+
+  async reinstallDevDependencies() {
+    await this.removeDependencies(this.devDependencies);
+    await _delay(500);
+    await this.installDevDependencies(this.devDependencies);
+  }
+
+  isRuntimeDependency(dep: DependencyRef): boolean {
+    let isRuntimeDependency: boolean;
+    if (typeof dep == 'string') {
+      isRuntimeDependency = this.runtimeDependencies.some(item => item.name == dep);
+    } else {
+      isRuntimeDependency = this.runtimeDependencies.some(item => item.name == dep.name);
+    }
+
+    return isRuntimeDependency;
+  }
+
+  isDevDependency(dep: DependencyRef): boolean {
+    let isDevDependency: boolean;
+    if (typeof dep == 'string') {
+      isDevDependency = this.devDependencies.some(item => item.name == dep);
+    } else {
+      isDevDependency = this.devDependencies.some(item => item.name == dep.name);
+    }
+
+    return isDevDependency;
+  }
+
+  hasDependency(dep: DependencyRef): boolean {
+    return this.isDevDependency(dep) || this.isRuntimeDependency(dep);
   }
 
   /**
@@ -216,8 +335,7 @@ export class PackageDomain {
       const devDependencies = link.transitedDependencies.dev;
 
       await uninstallDependencies({
-        packageManager: link.dest.packageManager,
-        packageRoot: link.dest.packageRoot,
+        domain: link.dest,
         dependencies: runtimeDependencies.concat(devDependencies)
       });
 
@@ -226,4 +344,8 @@ export class PackageDomain {
     }
     // return true;
   }
+}
+
+export function getPackageDomainForRoot(rootPath: string) {
+  return new PackageDomain(rootPath);
 }
