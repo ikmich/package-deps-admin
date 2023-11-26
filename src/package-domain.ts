@@ -269,6 +269,10 @@ export class PackageDomain {
     return isDevDependency;
   }
 
+  /**
+   * Check whether a domain has a dependency installed - be it a runtime or dev dependency.
+   * @param dep
+   */
   hasDependency(dep: DependencyRef): boolean {
     return this.isDevDependency(dep) || this.isRuntimeDependency(dep);
   }
@@ -289,19 +293,19 @@ export class PackageDomain {
       devDepNames: source.devDependencies.map(dep => dep.name)
     };
 
-    const _dest = {
-      runtimeDepNames: dest.runtimeDependencies.map(dep => dep.name),
-      devDepNames: dest.devDependencies.map(dep => dep.name)
-    };
+    // const _dest = {
+    //   runtimeDepNames: dest.runtimeDependencies.map(dep => dep.name),
+    //   devDepNames: dest.devDependencies.map(dep => dep.name)
+    // };
 
     for (const dep of _source.runtimeDepNames) {
-      if (!_dest.runtimeDepNames.includes(dep)) {
+      if (!dest.hasDependency(dep)) {
         foreignRuntimeDependencySet.add(dep);
       }
     }
 
     for (const dep of _source.devDepNames) {
-      if (!_dest.devDepNames.includes(dep)) {
+      if (!dest.hasDependency(dep)) {
         foreignDevDependencySet.add(dep);
       }
     }

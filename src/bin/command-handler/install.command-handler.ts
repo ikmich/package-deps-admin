@@ -20,10 +20,6 @@ export const installCommandHandler = {
     const dependencies = resolvedInputs.dependencies || [];
     const domain = getPackageDomainForRoot(process.cwd());
 
-    console.log({
-      dependencyRefs: dependencies
-    });
-
     /* Among the input dep-refs, we need to find which ones are dev and runtime deps. Also need to factor in the
     * dev-type option passed in. If dev-type option is passed, that should override the dep-type distinction from the
     * domain. */
@@ -63,11 +59,6 @@ export const installCommandHandler = {
           inputDevDeps.push(dep);
         }
       }
-
-      console.log('[install.command-helper]', {
-        inputRuntimeDeps,
-        inputDevDeps
-      });
 
       if (inputRuntimeDeps.length || inputDevDeps.length) {
         if (inputRuntimeDeps.length) {

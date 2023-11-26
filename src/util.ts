@@ -2,7 +2,7 @@ import { createRequire } from 'module';
 import Path from 'node:path';
 import fs from 'fs-extra';
 import chalk from 'chalk';
-import { DependencyRef, DependencyRefArray, PackageManagerValue } from './types.js';
+import { DependencyRef, PackageManagerValue } from './types.js';
 import shell from 'shelljs';
 
 export const require = createRequire(import.meta.url);
@@ -41,7 +41,7 @@ export function assertPackageManager(packageManager: PackageManagerValue) {
 }
 
 export const depsUtil = {
-  flatten(deps: DependencyRefArray, includeVersion: boolean = false): string {
+  flatten(deps: DependencyRef[], includeVersion: boolean = false): string {
     let out = '';
 
     for (let dep of deps) {
@@ -64,8 +64,8 @@ export const depsUtil = {
 };
 
 export const dependencyRefUtil = {
-  filter(deps: DependencyRefArray, cb: (dependencyName: string) => boolean): DependencyRefArray {
-    const filtered: DependencyRefArray = [];
+  filter(deps: DependencyRef[], cb: (dependencyName: string) => boolean): DependencyRef[] {
+    const filtered: DependencyRef[] = [];
     for (let dep of deps) {
       const name = typeof dep == 'string' ? dep : dep.name;
       if (cb(name)) {
@@ -76,7 +76,7 @@ export const dependencyRefUtil = {
     return filtered;
   },
 
-  find(deps: DependencyRefArray, name: string): DependencyRef | undefined {
+  find(deps: DependencyRef[], name: string): DependencyRef | undefined {
     for (let dep of deps) {
       if (typeof dep == 'string') {
         if (dep === name) {
@@ -90,7 +90,7 @@ export const dependencyRefUtil = {
     }
   },
 
-  containsByName(deps: DependencyRefArray, dependencyName: string): boolean {
+  containsByName(deps: DependencyRef[], dependencyName: string): boolean {
     for (let dep of deps) {
       if (typeof dep == 'string') {
         if (dep === dependencyName) {

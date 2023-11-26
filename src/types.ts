@@ -6,6 +6,4 @@ export type Dependency = {
   isGlobal?: boolean;
 }
 export type DependencyRef = string | Dependency;
-export type DependencyRefArray = DependencyRef[];
-
 export type UndoFn = () => Promise<any>

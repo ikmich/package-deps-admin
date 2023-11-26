@@ -4,7 +4,6 @@ import { CliOpts } from '../index.js';
 import { dependencyRefUtil, emptyUndoFn } from '../../util.js';
 import { InstallCommandBase } from './install-command.base.js';
 import { PackageManagerValue } from '../../types.js';
-import { logInfo } from '../../log.util.js';
 
 export const reinstallCommandHandler = {
   async execute(command: Command) {
@@ -16,14 +15,6 @@ export const reinstallCommandHandler = {
 
     let depType = resolvedInputs.dependencyType;
     const domain = resolvedInputs.domain;
-
-    console.log({
-      deps: dependencyRefs,
-      opts,
-      selectedDepType: depType,
-      hasDepTypeOpt: resolvedInputs.hasDepTypeOption,
-      packageManager: resolvedInputs.packageManager
-    });
 
     // ---
 
@@ -41,7 +32,7 @@ export const reinstallCommandHandler = {
     switch (true) {
 
       case resolvedInputs.hasDependencies: {
-        logInfo('-> has dependencies');
+        // logInfo('-> has dependencies');
         await uninstallDependencies({
           domain,
           dependencies: dependencyRefs
@@ -71,7 +62,7 @@ export const reinstallCommandHandler = {
 
       case resolvedInputs.hasDepTypeOption && !!depType: {
         /* No dependencyRefs available but a dep-type is specified. Reinstall only the dep-type dependencies. */
-        logInfo('-> has dependency type');
+        // logInfo('-> has dependency type');
         switch (depType) {
           case 'runtime':
             await domain.removeRuntimeDependencies();
@@ -113,7 +104,7 @@ export const reinstallCommandHandler = {
       }
 
       default: {
-        logInfo('No deps');
+        // logInfo('No deps');
         await domain.removeAllDependencies();
 
         installOpts = {

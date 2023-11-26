@@ -1,5 +1,5 @@
 import { logError, logInfo, logNotice, logSuccess, logWarn } from './log.util.js';
-import { DependencyRefArray, PackageManagerValue } from './types.js';
+import { DependencyRef, PackageManagerValue } from './types.js';
 import {
   _fn,
   _ifDev,
@@ -15,7 +15,7 @@ import shell from 'shelljs';
 import { PackageDomain } from './package-domain.js';
 
 export type InstallInstruction = {
-  dependencies: DependencyRefArray;
+  dependencies: DependencyRef[];
   undoFn: () => Promise<any>;
 }
 
@@ -58,7 +58,7 @@ export type InstallOpts = {
 export type UninstallOpts = {
   // packageRoot: string;
   domain: PackageDomain,
-  dependencies: DependencyRefArray,
+  dependencies: DependencyRef[],
   // packageManager: PackageManagerName
 }
 
@@ -176,13 +176,11 @@ export async function installDependencies(opts: InstallOpts) {
   cmdDevDependencies = cmdDevDependencies.trim();
   cmdGlobalDependencies = cmdGlobalDependencies.trim();
 
-  _ifDev(() => {
-    console.log('[installDependencies()]', {
-      cmdRuntimeDeps: cmdRuntimeDependencies,
-      cmdDevDeps: cmdDevDependencies,
-      cmdGlobalDeps: cmdGlobalDependencies
-    });
-  });
+  //   console.log('[installDependencies()]', {
+  //     cmdRuntimeDeps: cmdRuntimeDependencies,
+  //     cmdDevDeps: cmdDevDependencies,
+  //     cmdGlobalDeps: cmdGlobalDependencies
+  //   });
 
   // RUNTIME DEPENDENCIES
   if (hasRuntimeDependencies) {

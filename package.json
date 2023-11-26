@@ -1,6 +1,6 @@
 {
   "name": "package-deps-admin",
-  "version": "0.0.1-SNAPSHOT.2",
+  "version": "0.0.1-SNAPSHOT.3",
   "description": "Manage node project package dependencies",
   "main": "dist/index.js",
   "type": "module",
@@ -34,6 +34,14 @@
   "engines": {
     "node": ">=16"
   },
+  "bugs": {
+    "email": "michfx@gmail.com",
+    "url": "https://github.com/ikmich/package-deps-admin/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ikmich/package-deps-admin"
+  },
   "maintainers": [
     "Ikenna Agbasimalo <michfx@gmail.com>"
   ],
@@ -43,7 +51,6 @@
     "conf": "^12.0.0",
     "fs-extra": "^11.1.1",
     "inquirer": "^9.2.12",
-    "rimraf": "^5.0.5",
     "shelljs": "^0.8.5"
   },
   "devDependencies": {
@@ -52,6 +59,7 @@
     "@types/node": "^20.9.0",
     "@types/shelljs": "^0.8.15",
     "prettier": "^3.1.0",
+    "rimraf": "^5.0.5",
     "ts-node": "^10.9.1",
     "tsx": "^4.1.2"
   }
