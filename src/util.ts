@@ -4,13 +4,15 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import { DependencyRef, PackageManagerValue } from './types.js';
 import shell from 'shelljs';
+import { logWarn } from './log.util.js';
 
 export const require = createRequire(import.meta.url);
 
 export function readPkgJson(packageRoot: string): object {
   let file = Path.join(packageRoot, 'package.json');
   if (!fs.existsSync(file)) {
-    throw (new Error(`File not found - ${file}`));
+    logWarn(`[WARN] package.json file not found at ${file}`);
+    return {};
   }
 
   return require(file) as object;

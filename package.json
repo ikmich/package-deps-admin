@@ -1,6 +1,6 @@
 {
   "name": "package-deps-admin",
-  "version": "0.0.1-SNAPSHOT.3",
+  "version": "0.0.1-SNAPSHOT.4",
   "description": "Manage node project package dependencies",
   "main": "dist/index.js",
   "type": "module",

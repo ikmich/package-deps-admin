@@ -1,7 +1,5 @@
 import Conf from 'conf';
-import { readPkgJson } from './util.js';
-import { TransitLink } from './types._.js';
-import { logInfo } from './log.util.js';
+import { TransitLink } from './types_.js';
 
 const conf = new Conf({
   projectName: 'package-deps-admin'
@@ -13,19 +11,19 @@ const keys = {
 };
 
 export class Store {
-  private readonly cachedVersion: string;
-  private readonly activeVersion: string;
+  // private readonly cachedVersion: string;
+  // private readonly activeVersion: string;
 
   constructor() {
-    const pkgJson: any = readPkgJson(process.cwd());
-    this.activeVersion = pkgJson['version'] || '';
-    this.cachedVersion = this.get<string>(keys.packageVersion) || '';
-
-    if (this.activeVersion !== this.cachedVersion) {
-      logInfo('[store] New version!'); // migration? cleanup?
-      this.set(keys.packageVersion, this.activeVersion);
-      this.cachedVersion = this.activeVersion;
-    }
+    // const pkgJson: any = readPkgJson(packageRoot); // process.cwd()
+    // this.activeVersion = pkgJson['version'] || '';
+    // this.cachedVersion = this.get<string>(keys.packageVersion) || '';
+    //
+    // if (this.activeVersion !== this.cachedVersion) {
+    //   logInfo('[store] New version!'); // migration? cleanup?
+    //   this.set(keys.packageVersion, this.activeVersion);
+    //   this.cachedVersion = this.activeVersion;
+    // }
   }
 
   get<T>(key: string, defaultVal?: T | null): T | null {

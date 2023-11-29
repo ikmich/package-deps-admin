@@ -2,7 +2,6 @@ import { logError, logInfo, logNotice, logSuccess, logWarn } from './log.util.js
 import { DependencyRef, PackageManagerValue } from './types.js';
 import {
   _fn,
-  _ifDev,
   assertPackageManager,
   assertPackageRoot,
   colorUtil,
